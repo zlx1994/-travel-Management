@@ -15,8 +15,7 @@
           </div>
         </div>
       </div>
-   
-      <div class="right" :style='rightStyle'>
+      <div class="right">
           <div class="content">
             <div class="con_top">
               <div class="con_top_list" v-for='(item,index) in rightNav' :style='navIndex==index?navStyle:""' @click="choosePower($event,index,item.img)">
@@ -25,34 +24,35 @@
               </div>
             </div>
             <div class="employeeList">
-              <el-table class="employee" :data="employee" style="width: 100%;background:#666;color:#fff;">
-                <el-table-column prop="name" label="姓名" >  </el-table-column>
-                <el-table-column prop="number" label="编号"> </el-table-column>
-                <el-table-column prop="department" label="部门"> </el-table-column>
-                <el-table-column prop="level" label="级别"> </el-table-column>
+              <el-table v-loading='loadTable' ref="multipleTable" class="employee" :data="employee" style="width: 100%;background:#666;color:#fff;" @selection-change="selectionChangeAll">
+                 <el-table-column type='selection' class="selection" placeholder="全选" prop="address" width='100' label="全选">
+                  <el-checkbox v-model="checked"></el-checkbox>
+                </el-table-column>
+                <el-table-column prop="businessEmp.businessEmpName" label="姓名" >  </el-table-column>
+                <el-table-column prop="businessEmp.businessEmpNum" label="编号"> </el-table-column>
+                <el-table-column prop="businessEmp.businessEmpDet" label="部门"> </el-table-column>
+                <el-table-column prop="businessEmp.businessEmpLevel" label="级别"> </el-table-column>
                 <el-table-column label="操作">
                   <template slot-scope="scope">
                     <el-button type="text" size="small"><img src="../assets/bianji.png" alt=""></el-button>
                     <el-button @click="handleClick(scope.row)" type="text" size="small"><img src="../assets/shanchu.png" alt=""></el-button>
                   </template>
                 </el-table-column>
-                <el-table-column type='selection' class="selection" placeholder="全选" prop="address" width='100' label="全选">
-                  <el-checkbox v-model="checked"><img src="../assets/weixuanzhong.png" alt=""></el-checkbox>
-                </el-table-column>
+               
               </el-table>
             </div>
             <div class="rightB">
               <div class="missEmp">遗漏员工</div>
               <div class="pagemsg">
                 <div class="personnel">
-                  <div class="approvalPerson">审批人：人</div>
-                  <div class="allEmployee">全部员工：人</div>
-                  <div class="pageNum">共页</div>
+                  <div class="approvalPerson">审批人：{{aprover}}人</div>
+                  <div class="allEmployee">全部员工：{{peopleNum}}人</div>
+                  <div class="pageNum">共{{pages}}页</div>
                 </div>
                 <div class="operation">
                   <div class="block">
                     <!-- <span class="demonstration">直接前往</span> -->
-                    <el-pagination @size-change="handleSizeChange"  @current-change="handleCurrentChange" :small='small' :current-page.sync="currentPage" :page-size="10" layout="prev, pager, next, jumper" :total="100">
+                    <el-pagination @size-change="handleSizeChange"  @current-change="handleCurrentChange" :small='small' :current-page.sync="currentPage" :page-size="10" layout="prev, pager, next, jumper" :total="pages">
                     </el-pagination>
                   </div>
                 </div>
@@ -65,6 +65,7 @@
 </template>
 
 <script>
+import store from '../vuex/store'
 export default {
   name: 'HelloWorld',
   data () {
@@ -77,15 +78,57 @@ export default {
       ind:'0',
       navStyle:'',
       navIndex:'',
-      employee:[{'name':'张三','number':'010-001','department':'技术部','level':'5'}],
+      employee:[],
       checked:false,
       currentPage:1,
       small:true,//分页显示大小
+      loadTable:true,//是否显示loading
+      pages:0,//总页数
+      peopleNum:'0',//员工人数
+      aprover:0,//审批人数
+      multipleSelection:[],//存储选中的数组
     }
   },
   mounted:function(){
     var that=this;
-    
+    // console.log(store.state)
+    var host=store.state.localhost;
+    var list=store.state.list;
+    var opt={
+      method:'POST',
+      mode:'cors',
+      body:{
+        steamNum:'12345',
+        companyId:2,
+        size:10,
+        page:1
+      }
+    }
+    var body={
+        steamNum:'12345',
+        companyId:2,
+        size:10,
+        page:1
+      }
+  // console.log(opt)
+  this.$http.post(host+list, body,
+    // 需要配置一下
+    {emulateJSON: true}).then( (res) => {
+    console.log(res.body)
+    if(res.body!=""&&res.body.code==200)
+    that.loadTable=false;
+    var data=res.body.data;
+    var employee=data.list;
+    that.employee=employee;
+    that.pages=data.pages;
+    that.peopleNum=data.total;
+    console.log(that)
+ }, (err) => {
+    console.log(err)
+ })
+    // fetch(host+list,opt).then(function(res){
+    //   console.log(res.json())
+    // })
   },
   methods:{
     tabChange:function(e,i){
@@ -115,6 +158,14 @@ export default {
         }
       })
     },
+    //全选//全不选
+    selectionChangeAll:function(rows) {
+      var arr=[];
+      rows.forEach(function(item){
+        arr.push(item.steamId)
+      })
+     this.multipleSelection=arr;
+    },
     //page changed
     handleSizeChange:function(){
 
@@ -142,7 +193,7 @@ export default {
 .right{width: 83.65%;height:100%;position: relative;}
 .content{width: 100%;height: 100%;}
 .con_top{padding:0 0.7rem;box-sizing:border-box;height: 0.8rem;width:100%;background: #fff;font-size:0.2rem;color: #333;display: flex;align-items: center;justify-content: flex-start;margin-bottom: 0.2rem; }
-.con_top_list{width: 1.86rem;height: 100%;display: flex;align-items: center;justify-content: center;}
+.con_top_list{width: 1.86rem;height: 100%;display: flex;align-items: center;justify-content: center;cursor: pointer;}
 .con_top_list_icon{width:0.3rem;height: 0.3rem;margin-right: 0.1rem; }
 .con_top_list_icon img{width: 100%;height: 100%;display: block;}
 /*员工列表样式*/
